@@ -15,6 +15,7 @@
 typedef struct AimCfg
 {
     int max_radius;
+    uint32_t timeout_ms; /* Time before aimbot can switch to another target */
 } AimCfg;
 
 /** @brief Info about aim target */
@@ -28,7 +29,7 @@ typedef struct AimTarget
 
 static bool is_inited_ = false;
 static void* orig_CCam__Process_AimWeapon;
-static AimCfg cfg_ = {.max_radius = 500};
+static AimCfg cfg_ = {.max_radius = 500, .timeout_ms = 1000};
 static AimTarget target_;
 
 /**
@@ -63,6 +64,21 @@ static void convert_screen_coords_to_world_3d_(const CVector* screen,
  * @return Yaw angle in radians.
  */
 static float calculate_delta_yaw_(void);
+
+/**
+ * @brief Checks if a sufficient amount of time has passed since the last target
+ * was eliminated (or disconnected).
+ *
+ * This function returns false if the previous target was eliminated (or
+ * disconnected) within a timeframe shorter than the minimum threshold defined
+ * by \p cfg_.timeout_ms .
+ * It is designed to prevent the aiming system from rapidly switching to
+ * adjacent targets prematurely.
+ *
+ * @return bool Returns false if the time since the last kill is less than
+ * \p cfg_.timeout_ms; otherwise, true.
+ */
+static bool check_rapid_switching_protection(void);
 
 /**
  * @brief Selects aim target satisfying all conditions. If aim target found,
@@ -185,11 +201,54 @@ static float calculate_delta_yaw_(void)
     return d_yaw;
 }
 
+static bool check_rapid_switching_protection(void)
+{
+    // TODO: Check not only for death, but also for disapearance.
+    static uint32_t timeout_ms;
+    /* Return true if there is no timeout */
+    if (!cfg_.timeout_ms)
+    {
+        return true;
+    }
+    /* If the previous target has just died */
+    if (target_.ped && (target_.ped->m_nPedState == PED_DEAD ||
+                        target_.ped->m_nPedState == PED_DIE))
+    {
+        /* Calculate timeout when aimbot can switch to another target */
+        timeout_ms = gta_sa()->f_timeGetTime() + cfg_.timeout_ms;
+        /* Reset aim target */
+        target_.ped = NULL;
+        return false;
+    }
+    /* If the timeout has set before */
+    else if (timeout_ms)
+    {
+        /* Return false if the timeout has not yet expired */
+        if (timeout_ms > gta_sa()->f_timeGetTime())
+        {
+            return false;
+        }
+        else
+        {
+            /* Timeout has expired. Reset it */
+            timeout_ms = 0;
+            return true;
+        }
+    }
+    return true; // TODO: Remove this return.
+}
+
 static bool select_aim_target_(void)
 {
     // TODO: Prioritize peds by 3d distance
     // TODO: Prioritize peds rotated to player
 
+    /* If previous target was eliminated (or disconnected) within a timeframe
+     * shorter than the minimum threshold defined by cfg_.timeout_ms */
+    if (!check_rapid_switching_protection())
+    {
+        return false;
+    }
     /* Calculate crosshair screen position */
     CVector2D crosshair_screen_pos = {.x = *gta_sa()->crosshair_mult_x_ptr *
                                            *gta_sa()->screen_resolution_x_ptr,
