@@ -1,4 +1,5 @@
 #include <windows.h>
+#include "aimbot.h"
 
 BOOL APIENTRY DllMain(HMODULE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
@@ -8,6 +9,7 @@ BOOL APIENTRY DllMain(HMODULE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     case DLL_PROCESS_ATTACH:
     {
         /* Init */
+        aimbot_init();
         break;
     }
     case DLL_PROCESS_DETACH:
@@ -16,6 +18,7 @@ BOOL APIENTRY DllMain(HMODULE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         {
             /* Destroy */
         }
+        aimbot_destroy();
         break;
     }
     default:
