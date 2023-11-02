@@ -9,6 +9,8 @@
 #include <console/console.h>
 #include <ehook.h>
 
+#define AIM_PI 3.14159265359f
+
 /** @brief Aimbot configuration */
 typedef struct AimCfg
 {
@@ -56,6 +58,13 @@ static void convert_screen_coords_to_world_3d_(const CVector* screen,
                                                CVector* world);
 
 /**
+ * @brief Calculates delta yaw angle for auto aim.
+ *
+ * @return Yaw angle in radians.
+ */
+static float calculate_delta_yaw_(void);
+
+/**
  * @brief Selects aim target satisfying all conditions. If aim target found,
  *        updates global \p target_ struct and returns true, otherwise returns
  *        false.
@@ -82,6 +91,10 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
         /* Draw dot */
         gta_sa()->f_CFont__PrintString(target_.screen_pos.x,
                                        target_.screen_pos.y, "~R~.");
+        /* Calculate delta yaw */
+        float d_yaw = calculate_delta_yaw_();
+        /* Apply delta yaw */
+        gta_sa()->camera_ptr->m_aCams[0].m_fHorizontalAngle += d_yaw;
     }
 
     return gta_sa()->f_CCam__Process_AimWeapon(ccam, EDX, plyrPosn, a5, a6, a7);
@@ -113,6 +126,63 @@ static void convert_screen_coords_to_world_3d_(const CVector* screen_coors,
                      screen_coors->z * inverseMatrix._32 + inverseMatrix._42;
     world_coors->z = screenX * inverseMatrix._13 + screenY * inverseMatrix._23 +
                      screen_coors->z * inverseMatrix._33 + inverseMatrix._43;
+}
+
+static float calculate_delta_yaw_(void)
+{
+    /* Get player's arm position */
+    // TODO: Get weapon position instead.
+    CVector bullets_from;
+    gta_sa()->f_CPed__GetBonePosition(*gta_sa()->player_ptr_ptr, 0,
+                                      &bullets_from, 24, 1);
+    const CVector* cam_pos =
+        &gta_sa()->camera_ptr->placeable.m_pMatrix->mat.pos;
+    float dist_to_cam = sqrt(powf(target_.bone_pos.x - cam_pos->x, 2) +
+                             powf(target_.bone_pos.y - cam_pos->y, 2) +
+                             powf(target_.bone_pos.z - cam_pos->z, 2));
+
+    /* Calculate crosshair screen position */
+    // TODO: Use precalculated
+    CVector2D crosshair_screen_pos = {.x = *gta_sa()->crosshair_mult_x_ptr *
+                                           *gta_sa()->screen_resolution_x_ptr,
+                                      .y = *gta_sa()->crosshair_mult_y_ptr *
+                                           *gta_sa()->screen_resolution_y_ptr};
+
+    // TODO: Recalculate using crosshair_mult_x_ptr and crosshair_mult_y_ptr
+    CVector offset_scr = {
+        .x = crosshair_screen_pos.x - *gta_sa()->screen_resolution_x_ptr / 2.0f,
+        .y = crosshair_screen_pos.y - *gta_sa()->screen_resolution_y_ptr / 2.0f,
+        .z = target_.screen_pos.z};
+    CVector target_screen_new = {.x = target_.screen_pos.x - offset_scr.x,
+                                 .y = target_.screen_pos.y - offset_scr.y,
+                                 .z = dist_to_cam};
+    CVector offset_world;
+    convert_screen_coords_to_world_3d_(&target_screen_new, &offset_world);
+    /* Apply target's velocity */
+    offset_world.x += target_.ped->physical.m_vecMoveSpeed.x;
+    offset_world.y += target_.ped->physical.m_vecMoveSpeed.y;
+    offset_world.z += target_.ped->physical.m_vecMoveSpeed.z;
+    // TODO: Apply player's velocity?
+    CVector d = {.x = bullets_from.x - offset_world.x,
+                 .y = bullets_from.y - offset_world.y,
+                 .z = bullets_from.z - offset_world.z};
+    /* Calculate and normalize yaw angle */
+    float yaw = (AIM_PI - atan2f(d.y, -d.x));
+    float d_yaw = yaw - gta_sa()->camera_ptr->m_aCams[0].m_fHorizontalAngle;
+    if (d_yaw > AIM_PI)
+    {
+        d_yaw -= AIM_PI * 2;
+    }
+    if (d_yaw < -AIM_PI)
+    {
+        d_yaw += AIM_PI * 2;
+    }
+    /* Debug draw */
+    // char buf[10];
+    // snprintf(buf, sizeof(buf), "~R~%.3f", d_yaw);
+    // gta_sa()->f_CFont__PrintString(target_.screen_pos.x,
+    //                                target_.screen_pos.y, buf);
+    return d_yaw;
 }
 
 static bool select_aim_target_(void)
@@ -241,8 +311,6 @@ static uint32_t get_next_streamed_ped_handle_(void)
 
 bool aimbot_init(void)
 {
-    (void)convert_screen_coords_to_world_3d_; // TODO: Remove after use.
-
     if (!console_init())
     {
         return false;
