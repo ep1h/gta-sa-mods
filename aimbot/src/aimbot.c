@@ -9,13 +9,16 @@
 #include <console/console.h>
 #include <ehook.h>
 
-#define AIM_PI 3.14159265359f
+#define AIM_PI         3.14159265359f
+#define SKIN_IDS_COUNT 320
 
 /** @brief Aimbot configuration */
 typedef struct AimCfg
 {
     int max_radius;
     uint32_t timeout_ms; /* Time before aimbot can switch to another target */
+    bool ignored_skins[SKIN_IDS_COUNT]; /* Ignored ped skins */
+    bool ignored_skins_inversion; /* If true, invert ignored_skins array */
 } AimCfg;
 
 /** @brief Info about aim target */
@@ -287,8 +290,13 @@ static bool select_aim_target_(void)
         {
             continue;
         }
-        // TODO: Skip model ids from whitelist
-        //       ped->physical.entity.m_nModelIndex
+        /* Skip model ids from whitelist (or not from whitelist if inverted) */
+        if (ped->physical.entity.m_nModelIndex < sizeof(cfg_.ignored_skins) &&
+            (cfg_.ignored_skins[ped->physical.entity.m_nModelIndex] ==
+             !cfg_.ignored_skins_inversion))
+        {
+            continue;
+        }
 
         /* Check obstacles between player and target */
         if (!gta_sa()->f_CWorld__GetIsLineOfSightClear(
