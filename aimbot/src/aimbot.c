@@ -27,12 +27,62 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                                    CVector* plyrPosn, float a5,
                                                    float a6, float a7);
 
+/**
+ * @brief Returns streamed ped handle. Each call returns next streamed ped
+ * handle. If there is no more streamed peds, returns 0 and resets ped pool
+ * iterator for further calls.
+ *
+ * @return Next streamed ped handle or 0 if there is no more streamed peds.
+ */
+static uint32_t get_next_streamed_ped_handle_(void);
+
 static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                                    CVector* plyrPosn, float a5,
                                                    float a6, float a7)
 {
-    console_log("h_CCam__Process_AimWeapon\n");
+    console_log("handles: ");
+    for (uint32_t handle = get_next_streamed_ped_handle_(); handle != 0;
+         handle = get_next_streamed_ped_handle_())
+    {
+        console_log("%x ", handle);
+    }
+    console_log("\n");
+
     return gta_sa()->f_CCam__Process_AimWeapon(ccam, EDX, plyrPosn, a5, a6, a7);
+}
+
+static uint32_t get_next_streamed_ped_handle_(void)
+{
+    const void* ped_pool = *(gta_sa()->ped_pool_ptr);
+    uint32_t ped_pool_bytemap = *(uint32_t*)((uint32_t)ped_pool + 4);
+
+    static uint32_t bytemap_ptr;
+    static uint32_t handle_base;
+    static bool is_initialized = false;
+
+    if (!is_initialized)
+    {
+        bytemap_ptr = ped_pool_bytemap;
+        handle_base = 0;
+        is_initialized = true;
+    }
+
+    while (handle_base < 0x8b00)
+    {
+        uint32_t handle = *(uint32_t*)bytemap_ptr;
+        handle &= 0x000000FF;
+        ++bytemap_ptr;
+        if (handle < 0x80)
+        {
+            handle += handle_base;
+            handle_base += 0x100;
+            return handle;
+        }
+        handle_base += 0x100;
+    }
+
+    is_initialized = false;
+    return 0;
 }
 
 bool aimbot_init(void)
