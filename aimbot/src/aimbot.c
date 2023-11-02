@@ -3,6 +3,7 @@
  * @brief Provides implementation of the aimbot component.
  */
 #include "aimbot.h"
+#include <string.h>
 #include <math.h>
 #include <gta_sa_api/gta_sa.h>
 #include <console/console.h>
@@ -46,6 +47,15 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                                    float a6, float a7);
 
 /**
+ * @brief Converts screen coordinates to world coordinates.
+ *
+ * @param[in] screen Screen coordinates ptr.
+ * @param[out] world World coordinates ptr.
+ */
+static void convert_screen_coords_to_world_3d_(const CVector* screen,
+                                               CVector* world);
+
+/**
  * @brief Selects aim target satisfying all conditions. If aim target found,
  *        updates global \p target_ struct and returns true, otherwise returns
  *        false.
@@ -75,6 +85,34 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
     }
 
     return gta_sa()->f_CCam__Process_AimWeapon(ccam, EDX, plyrPosn, a5, a6, a7);
+}
+
+static void convert_screen_coords_to_world_3d_(const CVector* screen_coors,
+                                               CVector* world_coors)
+{
+    D3DMATRIX worldMatrix;
+    /* Get the combined view-projection matrix and invert it */
+    memcpy(&worldMatrix, (const void*)&gta_sa()->camera_ptr->m_mViewMatrix,
+           sizeof(worldMatrix));
+    worldMatrix._44 = 1.0f;
+    D3DMATRIX inverseMatrix;
+    // TODO: Check is it possible to reuse the same matrix
+    gta_sa()->f_c_D3DXMatrixInverse(&inverseMatrix, NULL, &worldMatrix);
+
+    /* Apply the inverse view-projection matrix to the screen coordinates */
+    float invZ = 1.0f / screen_coors->z;
+    float screenX =
+        screen_coors->x / (*gta_sa()->screen_resolution_x_ptr * invZ);
+    float screenY =
+        screen_coors->y / (*gta_sa()->screen_resolution_y_ptr * invZ);
+
+    /* Transform the screen coordinates into world coordinates */
+    world_coors->x = screenX * inverseMatrix._11 + screenY * inverseMatrix._21 +
+                     screen_coors->z * inverseMatrix._31 + inverseMatrix._41;
+    world_coors->y = screenX * inverseMatrix._12 + screenY * inverseMatrix._22 +
+                     screen_coors->z * inverseMatrix._32 + inverseMatrix._42;
+    world_coors->z = screenX * inverseMatrix._13 + screenY * inverseMatrix._23 +
+                     screen_coors->z * inverseMatrix._33 + inverseMatrix._43;
 }
 
 static bool select_aim_target_(void)
@@ -203,6 +241,8 @@ static uint32_t get_next_streamed_ped_handle_(void)
 
 bool aimbot_init(void)
 {
+    (void)convert_screen_coords_to_world_3d_; // TODO: Remove after use.
+
     if (!console_init())
     {
         return false;
