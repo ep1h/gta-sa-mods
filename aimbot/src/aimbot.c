@@ -34,6 +34,7 @@ static bool is_inited_ = false;
 static void* orig_CCam__Process_AimWeapon;
 static AimCfg cfg_ = {.max_radius = 500, .timeout_ms = 1000};
 static AimTarget target_;
+static bool is_enabled_;
 
 /**
  * @brief Hook of CCam::Process_AimWeapon game funciton. This function is called
@@ -51,6 +52,15 @@ static AimTarget target_;
 static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                                    CVector* plyrPosn, float a5,
                                                    float a6, float a7);
+
+/**
+ * @brief Test is cheat string starts from \p cheat (in reverse order)
+ *
+ * @param[in] cheat Cheat string to test (in reverse order).
+ *
+ * @return true if cheat string starts from \p cheat, false otherwise
+ */
+static bool test_cheat_(char* cheat);
 
 /**
  * @brief Handle pressed keys to control aimbot.
@@ -111,7 +121,7 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                                    float a6, float a7)
 {
     keys_control_();
-    if (select_aim_target_())
+    if (is_enabled_ && select_aim_target_())
     {
         /* Draw dot */
         gta_sa()->f_CFont__PrintString(target_.screen_pos.x,
@@ -125,8 +135,34 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
     return gta_sa()->f_CCam__Process_AimWeapon(ccam, EDX, plyrPosn, a5, a6, a7);
 }
 
+static bool test_cheat_(char* cheat)
+{
+    if (strstr(gta_sa()->cheat_string, cheat) == gta_sa()->cheat_string)
+    {
+        gta_sa()->cheat_string[0] = '\0';
+        return true;
+    }
+    return false;
+}
+
 static void keys_control_(void)
 {
+    if (test_cheat_("NOA")) /* "AON" cheatcode is to activate aimbot */
+    {
+        gta_sa()->f_CHud__SetHelpMessage("Aimbot ~G~activated", 1, 0, 0);
+        gta_sa()->cheat_string[0] = '\0';
+        is_enabled_ = true;
+    }
+    else if (!is_enabled_)
+    {
+        return;
+    }
+    else if (test_cheat_("FFOA")) /* "AOFF" cheatcode is to deactivate aimbot */
+    {
+        gta_sa()->f_CHud__SetHelpMessage("Aimbot ~R~deactivated", 1, 0, 0);
+        gta_sa()->cheat_string[0] = '\0';
+        is_enabled_ = false;
+    }
 }
 
 static void convert_screen_coords_to_world_3d_(const CVector* screen_coors,
