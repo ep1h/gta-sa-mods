@@ -53,6 +53,11 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                                    float a6, float a7);
 
 /**
+ * @brief Handle pressed keys to control aimbot.
+ */
+static void keys_control_(void);
+
+/**
  * @brief Converts screen coordinates to world coordinates.
  *
  * @param[in] screen Screen coordinates ptr.
@@ -105,6 +110,7 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                                    CVector* plyrPosn, float a5,
                                                    float a6, float a7)
 {
+    keys_control_();
     if (select_aim_target_())
     {
         /* Draw dot */
@@ -117,6 +123,10 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
     }
 
     return gta_sa()->f_CCam__Process_AimWeapon(ccam, EDX, plyrPosn, a5, a6, a7);
+}
+
+static void keys_control_(void)
+{
 }
 
 static void convert_screen_coords_to_world_3d_(const CVector* screen_coors,
