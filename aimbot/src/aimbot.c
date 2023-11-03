@@ -4,19 +4,24 @@
  */
 #include "aimbot.h"
 #include <string.h>
+#include <stdio.h>
 #include <math.h>
 #include <gta_sa_api/gta_sa.h>
 #include <console/console.h>
 #include <ehook.h>
 
-#define AIM_PI         3.14159265359f
-#define SKIN_IDS_COUNT 320
+#define AIM_PI             3.14159265359f
+#define SKIN_IDS_COUNT     320
+#define TIMEOUT_DEFAULT_MS 300
+#define TIMEOUT_MIN_MS     0
+#define TIMEOUT_MAX_MS     1000
+#define TIMEOUT_STEP_MS    100
 
 /** @brief Aimbot configuration */
 typedef struct AimCfg
 {
     int max_radius;
-    uint32_t timeout_ms; /* Time before aimbot can switch to another target */
+    int timeout_ms; /* Time before aimbot can switch to another target */
     bool ignored_skins[SKIN_IDS_COUNT]; /* Ignored ped skins */
     bool ignored_skins_inversion; /* If true, invert ignored_skins array */
 } AimCfg;
@@ -32,9 +37,10 @@ typedef struct AimTarget
 
 static bool is_inited_ = false;
 static void* orig_CCam__Process_AimWeapon;
-static AimCfg cfg_ = {.max_radius = 500, .timeout_ms = 1000};
+static AimCfg cfg_ = {.max_radius = 500, .timeout_ms = TIMEOUT_DEFAULT_MS};
 static AimTarget target_;
 static bool is_enabled_;
+static char buf[128];
 
 /**
  * @brief Hook of CCam::Process_AimWeapon game funciton. This function is called
@@ -162,6 +168,36 @@ static void keys_control_(void)
         gta_sa()->f_CHud__SetHelpMessage("Aimbot ~R~deactivated", 1, 0, 0);
         gta_sa()->cheat_string[0] = '\0';
         is_enabled_ = false;
+    }
+
+    if (gta_sa()->pads->NewState.DPadRight)
+    {
+        /* Scroll up */
+        if (gta_sa()->pads->NewState.LeftShoulder2 &&
+            ~gta_sa()->pads->OldState.LeftShoulder2)
+        {
+            cfg_.timeout_ms += TIMEOUT_STEP_MS;
+            if (cfg_.timeout_ms > TIMEOUT_MAX_MS)
+            {
+                cfg_.timeout_ms = TIMEOUT_MAX_MS;
+            }
+
+            snprintf(buf, sizeof(buf), "Timeout %d ms", cfg_.timeout_ms);
+            gta_sa()->f_CMessages__AddMessageJumpQ(buf, 1000, 1, 0);
+        }
+        /* Scroll down*/
+        else if (gta_sa()->pads->NewState.RightShoulder2 &&
+                 ~gta_sa()->pads->OldState.RightShoulder2)
+        {
+            cfg_.timeout_ms -= TIMEOUT_STEP_MS;
+            if (cfg_.timeout_ms < TIMEOUT_MIN_MS)
+            {
+                cfg_.timeout_ms = TIMEOUT_MIN_MS;
+            }
+
+            snprintf(buf, sizeof(buf), "Timeout %d ms", cfg_.timeout_ms);
+            gta_sa()->f_CMessages__AddMessageJumpQ(buf, 1000, 1, 0);
+        }
     }
 }
 
