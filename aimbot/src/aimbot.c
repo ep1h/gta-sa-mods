@@ -10,18 +10,22 @@
 #include <console/console.h>
 #include <ehook.h>
 
-#define AIM_PI             3.14159265359f
-#define SKIN_IDS_COUNT     320
-#define TIMEOUT_DEFAULT_MS 300
-#define TIMEOUT_MIN_MS     0
-#define TIMEOUT_MAX_MS     1000
-#define TIMEOUT_STEP_MS    100
+#define AIM_PI              3.14159265359f
+#define SKIN_IDS_COUNT      320
+#define TIMEOUT_DEFAULT_MS  300
+#define TIMEOUT_MIN_MS      0
+#define TIMEOUT_MAX_MS      1000
+#define TIMEOUT_STEP_MS     100
+#define SENSITIVITY_DEFAULT 0.1f
+#define SENSITIVITY_MIN     0.0f
+#define SENSITIVITY_MAX     1.0f
 
 /** @brief Aimbot configuration */
 typedef struct AimCfg
 {
     int max_radius;
-    int timeout_ms; /* Time before aimbot can switch to another target */
+    float sensitivity; /* How fast aimbot will rotate camera (0.0 - 1.0) */
+    int timeout_ms;    /* Time before aimbot can switch to another target */
     bool ignored_skins[SKIN_IDS_COUNT]; /* Ignored ped skins */
     bool ignored_skins_inversion; /* If true, invert ignored_skins array */
 } AimCfg;
@@ -37,7 +41,9 @@ typedef struct AimTarget
 
 static bool is_inited_ = false;
 static void* orig_CCam__Process_AimWeapon;
-static AimCfg cfg_ = {.max_radius = 500, .timeout_ms = TIMEOUT_DEFAULT_MS};
+static AimCfg cfg_ = {.max_radius = 500,
+                      .sensitivity = SENSITIVITY_DEFAULT,
+                      .timeout_ms = TIMEOUT_DEFAULT_MS};
 static AimTarget target_;
 static bool is_enabled_;
 static char buf[128];
@@ -134,6 +140,14 @@ static char CC_THISCALL h_CCam__Process_AimWeapon_(CCam* ccam, void* EDX,
                                        target_.screen_pos.y, "~R~.");
         /* Calculate delta yaw */
         float d_yaw = calculate_delta_yaw_();
+        /* Check and apply sensitivity */
+        cfg_.sensitivity = cfg_.sensitivity < SENSITIVITY_MIN
+                               ? SENSITIVITY_MIN
+                               : cfg_.sensitivity;
+        cfg_.sensitivity = cfg_.sensitivity > SENSITIVITY_MAX
+                               ? SENSITIVITY_MAX
+                               : cfg_.sensitivity;
+        d_yaw *= cfg_.sensitivity;
         /* Apply delta yaw */
         gta_sa()->camera_ptr->m_aCams[0].m_fHorizontalAngle += d_yaw;
     }
