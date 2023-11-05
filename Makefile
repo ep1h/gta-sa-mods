@@ -12,14 +12,14 @@ rwc = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwc,$d/,$2))
 # Discover all C and C++ source files in core and the specified project
 CORE_C_SOURCES = $(call rwc,core/src/,*.c)
 CORE_CXX_SOURCES = $(call rwc,core/src/,*.cpp)
-PROJECT_C_SOURCES = $(call rwc,$(PROJECT)/src/,*.c)
-PROJECT_CXX_SOURCES = $(call rwc,$(PROJECT)/src/,*.cpp)
+PROJECT_C_SOURCES = $(call rwc,projects/$(PROJECT)/src/,*.c)
+PROJECT_CXX_SOURCES = $(call rwc,projects/$(PROJECT)/src/,*.cpp)
 
 # Determine object file names by replacing the source directory with $(BUILD_DIR)/obj and the file extension with .o
 CORE_C_OBJECTS = $(patsubst core/src/%, $(BUILD_DIR)/obj/core/src/%, $(CORE_C_SOURCES:.c=.o))
 CORE_CXX_OBJECTS = $(patsubst core/src/%, $(BUILD_DIR)/obj/core/src/%, $(CORE_CXX_SOURCES:.cpp=.o))
-PROJECT_C_OBJECTS = $(patsubst $(PROJECT)/src/%, $(BUILD_DIR)/obj/$(PROJECT)/src/%, $(PROJECT_C_SOURCES:.c=.o))
-PROJECT_CXX_OBJECTS = $(patsubst $(PROJECT)/src/%, $(BUILD_DIR)/obj/$(PROJECT)/src/%, $(PROJECT_CXX_SOURCES:.cpp=.o))
+PROJECT_C_OBJECTS = $(patsubst projects/$(PROJECT)/src/%, $(BUILD_DIR)/obj/projects/$(PROJECT)/src/%, $(PROJECT_C_SOURCES:.c=.o))
+PROJECT_CXX_OBJECTS = $(patsubst projects/$(PROJECT)/src/%, $(BUILD_DIR)/obj/projects/$(PROJECT)/src/%, $(PROJECT_CXX_SOURCES:.cpp=.o))
 
 # Library include and link paths for ehook
 EH_LIB_DIR = lib/ehook/build/x32/lib
@@ -60,7 +60,7 @@ help:
 	@echo ""
 	@echo "Use 'make clean' to clean the build artifacts."
 
-all: lib_ehook $(BUILD_DIR)/bin/$(PROJECT).dll
+all: lib_ehook $(BUILD_DIR)/bin/projects/$(PROJECT).dll
 debug: default_target
 
 lib_ehook:
@@ -75,16 +75,16 @@ $(BUILD_DIR)/obj/core/src/%.o: core/src/%.cpp
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD_DIR)/obj/$(PROJECT)/src/%.o: $(PROJECT)/src/%.c
+$(BUILD_DIR)/obj/projects/$(PROJECT)/src/%.o: projects/$(PROJECT)/src/%.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD_DIR)/obj/$(PROJECT)/src/%.o: $(PROJECT)/src/%.cpp
+$(BUILD_DIR)/obj/projects/$(PROJECT)/src/%.o: projects/$(PROJECT)/src/%.cpp
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 # Link the object files to create the binary
-$(BUILD_DIR)/bin/$(PROJECT).dll: $(CORE_C_OBJECTS) $(CORE_CXX_OBJECTS) $(PROJECT_C_OBJECTS) $(PROJECT_CXX_OBJECTS)
+$(BUILD_DIR)/bin/projects/$(PROJECT).dll: $(CORE_C_OBJECTS) $(CORE_CXX_OBJECTS) $(PROJECT_C_OBJECTS) $(PROJECT_CXX_OBJECTS)
 	mkdir -p $(dir $@)
 	$(CXX) $(CORE_C_OBJECTS) $(CORE_CXX_OBJECTS) $(PROJECT_C_OBJECTS) $(PROJECT_CXX_OBJECTS) $(CXXLINKFLAGS) $(LIBS) -o $@
 
