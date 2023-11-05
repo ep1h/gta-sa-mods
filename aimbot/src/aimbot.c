@@ -19,6 +19,8 @@
 #define SENSITIVITY_DEFAULT 0.1f
 #define SENSITIVITY_MIN     0.0f
 #define SENSITIVITY_MAX     1.0f
+#define SENSITIVITY_STEP    0.05f
+
 
 /** @brief Aimbot configuration */
 typedef struct AimCfg
@@ -210,6 +212,34 @@ static void keys_control_(void)
             }
 
             snprintf(buf, sizeof(buf), "Timeout %d ms", cfg_.timeout_ms);
+            gta_sa()->f_CMessages__AddMessageJumpQ(buf, 1000, 1, 0);
+        }
+    }
+    else if (gta_sa()->pads->NewState.DPadLeft) /* Configure sensitivity */
+    {
+        /* Scroll up */
+        if (gta_sa()->pads->NewState.LeftShoulder2 &&
+            ~gta_sa()->pads->OldState.LeftShoulder2)
+        {
+            cfg_.sensitivity += SENSITIVITY_STEP;
+            if (cfg_.sensitivity > SENSITIVITY_MAX)
+            {
+                cfg_.sensitivity = SENSITIVITY_MAX;
+            }
+
+            snprintf(buf, sizeof(buf), "Sensitivity %.2f", cfg_.sensitivity);
+            gta_sa()->f_CMessages__AddMessageJumpQ(buf, 1000, 1, 0);
+        }
+        /* Scroll down*/
+        else if (gta_sa()->pads->NewState.RightShoulder2 &&
+                 ~gta_sa()->pads->OldState.RightShoulder2)
+        {
+            cfg_.sensitivity -= SENSITIVITY_STEP;
+            if (cfg_.sensitivity < SENSITIVITY_MIN)
+            {
+                cfg_.sensitivity = SENSITIVITY_MIN;
+            }
+            snprintf(buf, sizeof(buf), "Sensitivity %.2f", cfg_.sensitivity);
             gta_sa()->f_CMessages__AddMessageJumpQ(buf, 1000, 1, 0);
         }
     }
